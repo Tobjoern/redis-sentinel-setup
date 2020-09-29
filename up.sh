@@ -1,0 +1,1 @@
+docker stack deploy -c redis-pw.yml redis-pw

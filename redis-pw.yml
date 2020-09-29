@@ -1,0 +1,69 @@
+version: "3.8"
+
+services:
+  master:
+    image: bitnami/redis
+    environment:
+      - REDIS_REPLICATION_NODE=master
+      - REDIS_PASSWORD_FILE=/run/secrets/redis-password
+    ports:
+      - "6379"
+    secrets:
+      - redis-password
+    volumes:
+      - redis_data:/bitnami
+
+  slave:
+    image: bitnami/redis
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=master
+      - REDIS_MASTER_PASSWORD_FILE=/run/secrets/redis-password
+      - REDIS_PASSWORD_FILE=/run/secrets/redis-password
+    depends_on:
+      - master
+    deploy:
+      replicas: 2
+    ports:
+      - "6379"
+    secrets:
+      - redis-password
+    volumes:
+      - redis_data:/bitnami
+
+  sentinel:
+    image: bitnami/redis-sentinel
+    environment:
+      - REDIS_MASTER_HOST=master
+      # - REDIS_MASTER_PASSWORD=le-password
+      - REDIS_MASTER_PASSWORD_FILE=/run/secrets/redis-password
+      - REDIS_SENTINEL_DOWN_AFTER_MILLISECONDS=6000
+      - REDIS_SENTINEL_FAILOVER_TIMEOUT=6000
+    depends_on:
+      - master
+      - slave
+    deploy:
+      replicas: 3
+    ports:
+      - "26379-26381:26379"
+    secrets:
+      - redis-password
+    volumes:
+      - redis-sentinel_data:/bitnami
+
+  redis-app:
+    image: redis-app
+    depends_on:
+      - master
+      - slave
+      - sentinel
+
+secrets:
+  redis-password:
+    file: ./secrets/redis-password
+
+volumes:
+  redis-sentinel_data:
+    driver: local
+  redis_data:
+    driver: local
